@@ -39,6 +39,17 @@ def _env_int(key: str, default: int) -> int:
         return default
 
 
+def _env_bool(key: str, default: bool) -> bool:
+    raw = _env(key).lower()
+    if not raw:
+        return default
+    return raw in ("1", "true", "yes", "on")
+
+
+def _env_list(key: str, default: str = "") -> list[str]:
+    return [x.strip() for x in _env(key, default).split(",") if x.strip()]
+
+
 class Config:
     # --- GitHub OAuth App（真名代理的核心）---
     github_client_id: str = _env("GITHUB_CLIENT_ID")
@@ -65,6 +76,18 @@ class Config:
     llm_api_key: str = _env("LLM_API_KEY")
     llm_model: str = _env("LLM_MODEL", "gpt-4o-mini")
     llm_timeout: int = _env_int("LLM_TIMEOUT", 120)
+
+    # --- Agent 层（所有模型调用的唯一入口）---
+    # 选用的后端；内置：pydantic_ai / echo
+    agent_backend: str = _env("AGENT_BACKEND", "pydantic_ai")
+    # 后端不可用时的降级链（逗号分隔，按序下探）
+    agent_fallback: list[str] = _env_list("AGENT_FALLBACK", "echo")
+    # 是否允许 agent 调用工具自主检索（仓库文件 / 搜索 / PR 上下文 / MCP）
+    agent_tools_enabled: bool = _env_bool("AGENT_TOOLS_ENABLED", True)
+    # 工具调用轮数上限，防止多轮检索跑飞
+    agent_max_turns: int = _env_int("AGENT_MAX_TURNS", 8)
+    # MCP server 配置（JSON 数组），留空则不挂载
+    agent_mcp_servers: str = _env("AGENT_MCP_SERVERS")
 
     # --- 本服务 ---
     fernet_key: str = _env("FERNET_KEY")

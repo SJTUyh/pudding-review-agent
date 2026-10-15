@@ -15,7 +15,10 @@ from store.db import Database
 from adapters.github_oauth import GitHubOAuth
 from adapters.github_api import GitHubApi
 from adapters import feishu_bot
-from engine.intent_review import IntentReviewEngine, call_llm
+from agents import get_backend
+from agents.tools import build_tools
+from agents.tools.mcp_client import build_mcp_toolsets
+from engine.intent_review import IntentReviewEngine
 
 _PR_URL_RE = re.compile(r"https?://github\.com/([^/\s]+/[^/\s]+)/pull/(\d+)")
 _NUM_RE = re.compile(r"^#?(\d+)$")
@@ -45,13 +48,8 @@ class ReviewService:
         self.feishu = feishu_bot.FeishuClient(
             Config.feishu_app_id, Config.feishu_app_secret, Config.feishu_api_base
         )
-        self.engine = IntentReviewEngine(
-            Config.llm_api_base,
-            Config.llm_api_key,
-            Config.llm_model,
-            Config.llm_timeout,
-            Config.max_diff_chars,
-        )
+        self.backend = get_backend()
+        self.engine = IntentReviewEngine(self.backend)
 
         self.tasks: "queue.Queue[tuple[str, Any]]" = queue.Queue()
         self._pending_auth: dict[str, dict[str, Any]] = {}
@@ -299,6 +297,8 @@ class ReviewService:
             pr_number=intent["pr_number"],
             pr_title=pr.get("title", ""),
             files=files,
+            head_sha=(pr.get("head") or {}).get("sha"),
+            github_token=token,
         )
         draft_id = self.db.create_draft(
             intent_id=intent_id,
@@ -448,16 +448,12 @@ def _startup_selfcheck(service: "ReviewService") -> None:
             print(f"  [FAIL] {name}：{exc}")
 
     def _llm() -> str:
-        eng = service.engine
-        call_llm(
-            eng.api_base,
-            eng.api_key,
-            eng.model,
-            "你是连通性探针，只回复 OK。",
-            "回复 OK",
-            timeout=15,
-        )
-        return f"model={eng.model}"
+        detail = service.backend.probe()
+        info = f"backend={service.backend.name}"
+        if Config.agent_tools_enabled:
+            info += f"，内置工具 {len(build_tools())} 个"
+        info += f"，MCP {len(build_mcp_toolsets())} 个"
+        return info + (f"，{detail}" if detail else "")
 
     def _feishu() -> str:
         return f"tenant_access_token len={len(service.feishu.tenant_token())}"
