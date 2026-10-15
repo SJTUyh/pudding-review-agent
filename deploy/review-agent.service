@@ -1,0 +1,15 @@
+[Unit]
+Description=PR Review Agent (能力3+4)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=reviewer
+WorkingDirectory=/opt/review-agent
+EnvironmentFile=/opt/review-agent/.env
+ExecStart=/opt/review-agent/.venv/bin/python -m app.main
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

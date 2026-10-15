@@ -1,0 +1,35 @@
+# ===== 敏感信息，严禁入库 =====
+.env
+.env.local
+*.env.local
+
+# 运行期数据（SQLite 内含加密后的 gho_ token）
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# 本地环境相关的证书（代理中间人 CA / 合并后的 CA bundle）
+ca-bundle.pem
+ProxyCA*.crt
+*.pem
+
+# 日志
+*.log
+run.log
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# ===== 编辑器 / 系统 =====
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
